@@ -1,0 +1,660 @@
+---
+title: "Global Suicide_rate Dashboard"
+author: 'Chintu Kumar & Vairamuthu Perumal'
+
+
+    
+output: 
+  flexdashboard::flex_dashboard:
+    source_code: null
+    vertical_layout: fill 
+    theme:  cerulean
+    social: [ "menu"]
+---
+
+``` {js}
+// Inverse color of navigation bar.
+$('.navbar-inverse').removeClass('navbar-inverse').addClass('navbar-default');
+```
+
+```{r setup, include=FALSE}
+#knitr::opts_chunk$set(eval = TRUE, include = FALSE)
+# Load necessary packages.
+
+library(ggplot2)
+library(knitr)
+library(imager)
+library(Amelia)
+library(flexdashboard)
+library(plotly)
+library(dplyr)
+library(highcharter)
+library(rpivotTable)
+library(flexdashboard)
+library(knitr)
+library(viridis)
+library(tidyverse)
+library(countrycode)
+library(rjson) 
+library(crosstalk)
+library(DT)
+```
+
+```{r include=FALSE}
+# Read in data. 
+data <- read.csv(file.choose())
+
+#Reorder levels of age to be in chronological order. 
+data$age <- factor(data$age, levels = c("5-14 years", "15-24 years", "25-34 years", "35-54 years", "55-74 years", "75+ years"))
+
+```
+
+
+```{r include=FALSE}
+# Create a custom theme for the plots.
+
+custom_theme <- hc_theme(
+  colors = c('#5ACAFF', 'darkgreen', 'darkred'),
+  chart = list(
+         backgroundColor = '#EAEAEA', 
+         plotBorderColor = "brown"),
+  xAxis = list(
+         gridLineColor = "F5F5F5", 
+         labels = list(style = list(color = "#555555")), 
+         lineColor = "#F5F5F5", 
+         minorGridLineColor = "#F5F5F5", 
+         tickColor = "#F5F5F5", 
+         title = list(style = list(color = "#555555"))), 
+  yAxis = list(
+         gridLineColor = "#F5F5F5", 
+         labels = list(style = list(color = "#555555")), 
+         lineColor = "#F5F5F5", 
+         minorGridLineColor = "#F5F5F5", 
+         tickColor = "#F5F5F5", 
+         tickWidth = 1, 
+         title = list(style = list(color = "#555555"))),   
+  title = list(style = list(color = '#555555', fontFamily = "Lato")),
+  subtitle = list(style = list(color = '#777777', fontFamily = "Lato")),
+  legend = list(
+         itemStyle = list(color = "#555555"), 
+         itemHoverStyle = list(color = "#FFF"), 
+         itemHiddenStyle = list(color = "#606063")), 
+  credits = list(style = list(color = "#666")),
+  itemHoverStyle = list(color = 'graywhite'))
+
+```
+
+
+
+
+project information
+========================================
+
+Created by: [chintu kumar & vairamuthu Perumal]::
+
+cordinator: Fadi Fayez
+
+Introduction:
+
+Death by suicide occurs in every country ,however the rate of suicide is different in each country ,In this we will analyze the global suicide rate around the globe from the year 1985-2016,this project aims to find relationship between suicide rate and gender, age group/generation or GDP across countries using predictive and descriptive analysis.
+
+About Dataset:
+
+The dataset for this project includes 12 variables: country, year, sex, age group, suicide number, population, suicide rate, HDI, GDP per year, GDP per capita and generation. Data is recorded for a total of 101 counties from year 1985 to 2016.
+
+
+
+
+
+
+data table
+=======================================================================
+
+
+Column {.tabset .tabset-fade data-width=700 .colored }
+-----------------------------------------------------------------------
+
+### Data Table {.no-padding}
+
+```{r fig.height=5.13}
+datatable(data,
+          caption = "suicide data",
+          rownames = T,
+          filter = "top",
+          options = list(pageLength = 25))
+
+```
+
+
+.colored {
+  background-color: #EAEAEA;
+}
+
+
+Pivot Table
+=======================================================================
+
+
+Column {.tabset .tabset-fade data-width=700 .colored }
+-----------------------------------------------------------------------
+
+### Pivot Table {.no-padding}
+
+```{r fig.height=5.13}
+rpivotTable(data,
+            aggregatorName = "Count",
+            cols= "fm",
+            rows = "country",
+            rendererName = "Heatmap")
+
+```
+
+
+
+
+.colored {
+  background-color: #EAEAEA;
+}
+
+
+Predictive Analysis
+=======================================================================
+
+
+Column {.tabset .tabset-fade data-width=700 .colored }
+-----------------------------------------------------------------------
+
+### (s1) simple_regression and correlation {.no-padding}
+
+```{r fig.height=5.13}
+x<-data$suicides_no
+y<-data$gdp_per_capita
+
+#regression
+mod<-lm(x~y)
+summary(mod)
+
+#correlation
+cor(x,y)
+
+```
+### (s2) SR_confidence interval and anova {.no-padding}
+
+```{r fig.height=5.13}
+
+#confidence interval and anova
+
+confint(mod,level = 0.99)
+anova(mod)
+
+
+
+```
+
+
+### (s3) proportion table {.no-padding}
+
+```{r fig.height=5.13}
+prop.table(table(data$age,data$sex))
+# bar plot
+barplot(prop.table(table(data$age,data$sex)),
+        col = rainbow(6),
+        ylim = c(0,0.7),
+        main = "Class Distribution")
+
+```
+
+### (s4) accuracy and GGplot{.no-padding}
+
+```{r fig.height=5.13}
+#to check accuracy mean
+by(data$suicides_no, data$age, mean)
+
+#to check accuracy length
+by(data$suicides_no, data$age, length)
+
+
+#analysis of variance
+anova<-aov(data$suicides_no~data$sex,data=data)
+summary(anova)
+
+#pattern of suicides with reference to age group
+ggplot(data, aes(x=suicides_no, y=age))+geom_boxplot()+coord_flip()
+#pattern of suicides with reference to gender.
+ggplot(data, aes(x=suicides_no, y=sex))+geom_boxplot()+coord_flip()
+
+```
+
+
+### (s5) prop table Train data{.no-padding}
+
+```{r fig.height=5.13}
+#split data set into training and test data sets
+
+set.seed(123)
+ind <- sample(2, nrow(data), replace = TRUE, prob = c(0.7,0.3))
+train <- data[ind==1,]
+
+
+test <- data[ind==2,]
+
+
+#creating prop table train data sets
+
+table(train$sex,train$age)
+
+prop.table(table(train$sex,train$age))
+
+summary(train)
+
+table(test$sex,test$age)
+
+prop.table(table(test$sex,test$age))
+
+summary(test)
+
+
+
+```
+
+
+### (s6) prop table Test data{.no-padding}
+
+```{r fig.height=5.13}
+#split data set into training and test data sets
+
+set.seed(123)
+ind <- sample(2, nrow(data), replace = TRUE, prob = c(0.7,0.3))
+train <- data[ind==1,]
+
+
+test <- data[ind==2,]
+
+
+#creating prop table for test data sets
+
+
+
+table(test$sex,test$age)
+
+prop.table(table(test$sex,test$age))
+
+summary(test)
+
+
+```
+### (s7) multiple regression {.no-padding}
+
+```{r}
+result <- lm(data$suicides_no~data$gdp_per_capita + data$year +
+             data$population+data$sex+data$generation+data$age+data$suicides.100k.pop+data$HDI_.for_.year)
+
+summary(result)
+
+```
+
+
+### (s8) analysis by anova {.no-padding}
+
+```{r}
+result <- lm(data$suicides_no~data$gdp_per_capita + data$year +
+             data$population+data$sex+data$generation+data$age+data$suicides.100k.pop+data$HDI_.for_.year)
+
+anova(result)
+
+
+
+
+```
+
+### (s9) confidence interval {.no-padding}
+
+```{r fig.height=5.13}
+
+#to check confidence level
+confint(result,level = 0.99)
+
+```
+
+### (s10) plot result {.no-padding}
+
+```{r fig.height=5.13}
+
+plot(result)
+
+```
+
+
+### (s11) plot anova {.no-padding}
+
+```{r fig.height=5.13}
+
+plot(anova)
+
+```
+
+
+
+.colored {
+  background-color: #EAEAEA;
+}
+
+
+Descriptive Analysis
+=======================================================================
+
+
+Column {.tabset .tabset-fade data-width=700 .colored }
+-----------------------------------------------------------------------
+
+### Global_overall_trend {.no-padding}
+
+```{r fig.height=5}
+# Create tibble for our line plot.  
+overall_tibble = select(data, year, suicides_no, population)
+overall_tibble = overall_tibble %>%  group_by(year) %>% summarise(suicide_rate = round((sum(suicides_no)/sum(population))*100000, 2))
+  
+# Create a line plot.
+
+highchart() %>% 
+    hc_add_series(overall_tibble, hcaes(x = year, y = suicide_rate, color = suicide_rate), type = "line") %>%
+    hc_tooltip(crosshairs = TRUE, borderWidth = 1.5, headerFormat = "", pointFormat = paste("Year: {point.x}  Suicides: {point.y}")) %>%
+    hc_title(text = "Global Suicide_rate Trend") %>% 
+    hc_subtitle(text = "1985-2015") %>%
+    hc_xAxis(title = list(text = "Year_suicide")) %>%
+    hc_yAxis(title = list(text = "global_Suicides per 100K people"),
+             allowDecimals = FALSE,
+             plotLines = list(list(
+                    color = "darkbrown", width = 1, dashStyle = "Dash", 
+                    value = mean(overall_tibble$suicide_rate),
+                    label = list(text = "Mean = 13", 
+                                 style = list(color = "darkgreen", fontSize = 11))))) %>%
+    hc_legend(enabled = FALSE) %>% 
+    hc_add_theme(custom_theme)
+```
+
+
+### Trend_By_Gender {.no-padding}
+
+```{r fig.height=5.14}
+
+sex_tibble <- data %>%
+  select(year, sex, suicides_no, population) %>%
+  group_by(year, sex) %>%
+  summarise(suicide_rate = round((sum(suicides_no)/sum(population))*100000, 2))
+
+sex_color <- c("yellow", "green")
+
+# line plot.
+highchart() %>% 
+    hc_add_series(sex_tibble, hcaes(x = year, y = suicide_rate, group = sex), type = "line", color = sex_color) %>%
+    hc_tooltip(crosshairs = TRUE, borderWidth = 1.5, headerFormat = "", pointFormat = paste("Year: {point.x} ","Gender: {point.sex}", "Suicides: {point.y}")) %>%
+    hc_title(text = "Global Suicides Rate by Gender") %>% 
+    hc_subtitle(text = "1985-2015") %>%
+    hc_xAxis(title = list(text = "Year_suicide")) %>%
+    hc_yAxis(title = list(text = "Global_Suicide per 100K people"),
+             allowDecimals = FALSE,
+             plotLines = list(list(
+                    color = "darkbrown", width = 1, dashStyle = "Dash",
+                    value = mean(overall_tibble$suicide_rate),
+                    label = list(text = "Mean = 13", 
+                                 style = list(color = 'darkbrown', fontSize = 11))))) %>% 
+    hc_add_theme(custom_theme)
+```
+
+### Trend_By_Age {.no-padding}
+
+```{r fig.height=5.13}
+
+age_tibble <- data %>%
+  select(year, age, suicides_no, population) %>%
+  group_by(year, age) %>%
+  summarise(suicide_rate = round((sum(suicides_no)/sum(population))*100000, 2))
+
+# Pick color for graph. 
+age_color <- plasma(6,begin = 0.3, end = 1,direction = -1)
+
+# line plot.
+highchart() %>% 
+    hc_add_series(age_tibble, hcaes(x = year, y = suicide_rate, group = age), type = "line", color = age_color) %>%
+    hc_tooltip(crosshairs = TRUE, borderWidth = 1.5, headerFormat = "", pointFormat = paste("Year: {point.x} ","Age: {point.age}", "Suicides: {point.y}")) %>%
+    hc_title(text = "Global Suicides Rate by Age") %>% 
+    hc_subtitle(text = "1985-2015") %>%
+    hc_xAxis(title = list(text = "Year_suicide")) %>%
+    hc_yAxis(title = list(text = "global_Suicides per 100K people"),
+             allowDecimals = FALSE,
+             plotLines = list(list(
+                    color = "darkbrown", width = 1, dashStyle = "Dash",
+                    value = mean(overall_tibble$suicide_rate),
+                    label = list(text = "Mean = 13", 
+                                 style = list(color = 'darkbrown', fontSize = 11))))) %>% 
+    hc_add_theme(custom_theme)
+```
+
+
+Column {data-width=280}
+-----------------------------------------------------------------------
+
+### Global_Suicides per 100K population (1985-2015) 
+
+```{r fig.height=0.8}
+
+total_suicides <- round(mean(overall_tibble$suicide_rate), 1)
+
+# Create value box
+valueBox(total_suicides, icon = "fa-arrow-up", color = 'brown')
+```
+
+### Global_suicides trend_by_Gender {.no-title .no-padding .colored }
+
+```{r fig.height=1.9}
+
+pie_sex <- data %>%
+  select(sex, suicides_no, population) %>%
+  group_by(sex) %>%
+  summarise(suicide_rate = round((sum(suicides_no)/sum(population))*100000, 2))
+  
+#pie chart 
+highchart() %>% 
+  hc_add_series(pie_sex, hcaes(x = sex, y = suicide_rate, 
+                               color = sex_color), type = "pie") %>%
+  hc_tooltip(borderWidth = 1.5, headerFormat = "", pointFormat = paste("Gender: {point.sex} ({point.percentage:.1f}%)  Suicides per 100K: {point.y}")) %>%
+  hc_title(text = "Global_Suicides Rate by Gender", style = (list(fontSize = '14px'))) %>% 
+  hc_subtitle(text = "1985-2015", style = (list(fontSize = '10px'))) %>%
+  hc_plotOptions(pie = list(dataLabels = list(distance = 5, 
+                            style = list(fontSize = 10)), 
+                            size = 130)) %>% 
+  hc_add_theme(custom_theme)
+```
+
+
+### Global_suicides_trend_b_Age {.no-title .no-padding .colored }
+
+```{r fig.height=1.9}
+
+pie_age <- data %>%
+  select(age, suicides_no, population) %>%
+  group_by(age) %>%
+  summarise(suicide_rate = round((sum(suicides_no)/sum(population))*100000, 2)) %>%
+  arrange(suicide_rate)
+
+# piechart age. 
+highchart() %>% 
+  hc_add_series(pie_age, hcaes(x = age, y = suicide_rate, 
+                               color = age_color), type = "pie") %>%
+  hc_tooltip(borderWidth = 1.5, headerFormat = "", pointFormat = paste("Age: {point.age} ({point.percentage:.1f}%)  Suicides per 100K: {point.y}")) %>%  
+  hc_title(text = "Global_Suicides Rate by Age", style = (list(fontSize = '14px'))) %>% 
+  hc_subtitle(text = "1985-2015", style = (list(fontSize = '10px'))) %>%
+  hc_plotOptions(pie = list(dataLabels = list(distance = 5, 
+                            style = list(fontSize = 10)), 
+                            size = 130)) %>% 
+  hc_add_theme(custom_theme)
+```
+Continents and Countries
+========================================================================
+
+
+Column {.tabset .tabset-fade data-width=400 .colored }
+-----------------------------------------------------------------------
+
+### Trend_by_country {.no-padding}
+```{r fig.height=4.55}
+
+country_bar <- data %>%
+  select(country, suicides_no, population) %>%
+  group_by(country) %>%
+  summarise(suicide_rate = round((sum(suicides_no)/sum(population))*100000, 2)) %>%
+  arrange(desc(suicide_rate))
+
+# Create interactive bar plot
+highchart() %>%
+    hc_add_series(country_bar, hcaes(x = country, y = suicide_rate, color = suicide_rate), type = "bar")  %>% 
+    hc_tooltip(borderWidth = 1.5, 
+               pointFormat = paste("Suicides: {point.y}")) %>%
+    hc_legend(enabled = FALSE) %>%
+    hc_title(text = "Global_Suicides Rate by country") %>% 
+    hc_subtitle(text = "1985-2015") %>%
+    hc_xAxis(categories = country_bar$country, 
+             labels = list(step = 1),
+             min = 0, max = 25,
+             scrollbar = list(enabled = TRUE)) %>%
+    hc_yAxis(title = list(text = "Global_Suicides per 100K people")) %>%
+    hc_plotOptions(bar = list(stacking = "normal", 
+                              pointPadding = 0, groupPadding = 0, borderWidth = 0.5)) %>% 
+    hc_add_theme(custom_theme)
+```
+
+
+### Trend_By_gender {.no-padding}
+```{r fig.height=4.65}
+ 
+country_bar_sex <- data %>%
+  select(country, sex, suicides_no, population) %>%
+  group_by(country, sex) %>%
+  summarise(suicide_rate = round((sum(suicides_no)/sum(population))*100000, 2))
+
+country_tibble <- data %>%
+  select(country, suicides_no, population) %>%
+  group_by(country) %>%
+  summarise(suicide_rate = round((sum(suicides_no)/sum(population))*100000, 2)) 
+
+# Create bar chart of suicide by sex.
+highchart() %>%
+    hc_add_series(country_bar_sex, hcaes(x = country, y = suicide_rate, group = sex), type = "bar", color = sex_color)  %>% 
+    hc_tooltip(borderWidth = 1.5, pointFormat = paste("Gender: {point.sex} ({point.percentage:.1f}%)  Suicides per 100K: {point.y}")) %>%
+    hc_legend(enabled = TRUE, colorByPoint = TRUE) %>%
+    hc_title(text = "Global_Suicides by country and gender") %>% 
+    hc_subtitle(text = "1985-2015") %>%
+    hc_xAxis(categories = country_tibble$country,
+             labels = list(step = 1),
+             min = 0, max = 25,
+             scrollbar = list(enabled = TRUE)) %>%
+    hc_yAxis(title = list(text = "Percentage of Overall suicides")) %>%
+    hc_plotOptions(bar = list(stacking = "percent", 
+                              pointPadding = 0, groupPadding = 0, borderWidth = 0.4)) %>% 
+    hc_add_theme(custom_theme)
+```
+
+
+### Trend_By_age {.no-padding}
+```{r fig.height=4.65}
+# Create tibble for suicide by countries and age 
+country_bar_age <- data %>%
+  select(country, age, suicides_no, population) %>%
+  group_by(country, age) %>%
+  summarise(suicide_rate = round((sum(suicides_no)/sum(population))*100000, 2))
+
+# Create interactive bar plot.
+highchart() %>%
+    hc_add_series(country_bar_age, hcaes(x = country, y = suicide_rate, group = age), type = "bar", color = age_color)  %>% 
+    hc_tooltip(borderWidth = 1.5, pointFormat = paste("Age: {point.age} ({point.percentage:.1f}%)  Suicides per 100K: {point.y}")) %>%
+    hc_title(text = "Global_Suicides by country and age") %>% 
+    hc_subtitle(text = "1985-2015") %>%
+    hc_xAxis(categories = country_tibble$country,
+             labels = list(step = 1),
+             min = 0, max = 25,
+             scrollbar = list(enabled = TRUE)) %>%
+    hc_yAxis(title = list(text = "Percentage of overall suicides")) %>%
+    hc_plotOptions(bar = list(stacking = "percent", 
+                              pointPadding = 0, groupPadding = 0, borderWidth = 0.5)) %>% 
+    hc_add_theme(custom_theme)
+```
+
+
+Row {data-height = 350}
+-----------------------------------------------------------------------
+
+```{r include=FALSE}
+ 
+data$continent <- countrycode(sourcevar = data$country,
+                              origin = "country.name",
+                              destination = "continent")
+
+# Reclassify countries that have been coded as 'Americas', by countrycode(), into 'North America' and 'South America'. 
+south_america <- c('Argentina', 'Brazil', 'Chile', 'Colombia', 'Ecuador', 'Guyana', 'Paraguay', 'Suriname', 'Uruguay')
+
+data$continent[data$country %in% south_america] <- 'South America'
+data$continent[data$continent=='Americas'] <- 'North America'
+```
+
+### Global_Suicides by Continent and Gender {.no-title .no-padding .colored }
+
+```{r fig.height=2.35}
+
+continent_sex_tibble <- data %>%
+  select(continent, sex, suicides_no, population) %>%
+  group_by(continent, sex) %>%
+  summarize(suicide_rate = round((sum(suicides_no)/sum(population))*100000, 2))
+
+# histogram
+highchart() %>%
+hc_add_series(continent_sex_tibble, hcaes(x = continent, y = suicide_rate, group = sex), type = "column")  %>% 
+    hc_colors(colors = sex_color) %>%
+    hc_title(text = "Global_Suicides Rate by Continent and Gender", style = (list(fontSize = '14px'))) %>% 
+    hc_subtitle(text = "1985-2015") %>%
+    hc_tooltip(borderWidth = 1.5, pointFormat = paste("Gender:  {point.sex}   Suicides: {point.y}")) %>%
+    hc_xAxis(categories = c("c_Africa", "c_Asia", "c_Europe", "c_North-America", "c_Oceania", "c_South-America"), labels = list(style = list(fontSize = 8))) %>%
+    hc_yAxis(labels = list(style = list(fontSize = 10)),
+             title = list(text = "Suicides per 100K people",
+             style = list(fontSize = 10)),
+        plotLines = list(
+          list(color = "brown", width = 1, dashStyle = "Dash", 
+               value = mean(overall_tibble$suicide_rate),
+               label = list(text = "Mean = 13", style = list(color = "brown", fontSize = 6))))) %>%     
+    hc_legend(verticalAlign = 'top', enabled = FALSE) %>% 
+    hc_add_theme(custom_theme)
+```
+
+
+### Global_Suicides by Continent and Age {.no-title .no-padding .colored }
+
+```{r fig.height=2.35}
+
+continent_age_tibble <- data %>%
+  select(continent, age, suicides_no, population) %>%
+  group_by(continent, age) %>%
+  summarize(suicide_rate = round((sum(suicides_no)/sum(population))*100000, 2)) 
+
+# histogram.
+highchart() %>%
+hc_add_series(continent_age_tibble, hcaes(x = continent, y = suicide_rate, group = age), type = "column")  %>% 
+    hc_colors(colors = age_color) %>%
+    hc_title(text = "Global_Suicides Rate by Continent and Age", style = (list(fontSize = '14px'))) %>% 
+    hc_subtitle(text = "1985-2015") %>%
+    hc_tooltip(borderWidth = 1.5, pointFormat = paste("Age:  {point.age}   Suicides: {point.y}")) %>%
+    hc_xAxis(categories = c("c_Africa", "c_Asia", "c_Europe", "c_North-America", "c_Oceania", "c_South-America"), labels = list(style = list(fontSize = 8))) %>%
+    hc_yAxis(labels = list(style = list(fontSize = 10)),
+             title = list(text = "Suicides per 100K people",
+                          style = list(fontSize = 10)),
+        plotLines = list(
+          list(color = "brown", width = 1, dashStyle = "Dash", 
+               value = mean(overall_tibble$suicide_rate),
+               label = list(text = "Mean = 13", style = list(color = "green", fontSize = 6))))) %>%    
+    hc_legend(verticalAlign = 'top', enabled = FALSE) %>% 
+    hc_add_theme(custom_theme)
+```
+
+
+
+
+
